@@ -92,7 +92,7 @@ def get_args_parser():
     )
     parser.add_argument(
         "--entity",
-        default="ywa",
+        default="YOUR ENTITY NAME",
         type=str,
         help="wandb entity name",
         required=False,
