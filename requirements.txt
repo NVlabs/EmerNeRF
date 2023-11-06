@@ -1,0 +1,32 @@
+--extra-index-url https://download.pytorch.org/whl/cu117
+torch==2.0.0+cu117
+torchvision==0.15.0+cu117
+omegaconf==2.3.0
+torchmetrics==0.10.3
+xformers==0.0.18
+
+# dev
+black==22.6.0
+
+# custom
+tensorboard==2.11.0
+wandb==0.15.8
+matplotlib==3.6.1
+plotly==5.13.1
+imageio
+imageio-ffmpeg
+timm==0.9.5
+pyquaternion
+scikit-image==0.20.0
+vedo
+numpy
+ninja
+tqdm
+gdown
+
+
+# Waymo Open Dataset dependencies
+waymo-open-dataset-tf-2-11-0==1.6.0
+
+# Nuscenes dependencies
+nuscenes-devkit

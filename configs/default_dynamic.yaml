@@ -1,0 +1,6 @@
+nerf:
+  model:
+    head:
+      enable_dynamic_branch: True # whether to use dynamic branch
+      enable_shadow_head: True # whether to use shadow head
+      enable_flow_branch: False # whether to use flow branch

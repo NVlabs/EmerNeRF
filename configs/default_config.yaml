@@ -1,0 +1,168 @@
+data:
+  data_root: data/waymo/processed/training # data root for the dataset
+  dataset: waymo # choose from ["waymo", "nuscenes"]
+  scene_idx: 0 # which scene to use, [0, 798] for waymo's training set and [0, 849] for nuscenes's train/val sets, inclusive
+  start_timestep: 0 # which timestep to start from
+  end_timestep: -1 # which timestep to end at, -1 means the last timestep
+  ray_batch_size: 8192 # ray batch size for training, it's embedded in the dataset class for now
+  preload_device: cuda # choose from ["cpu", "cuda"], cache the data on this device. Will oom if the dataset is too large
+  pixel_source: # everything related to "pixels" --- from camera images
+    load_size: [640, 960] # [height, width], resize the raw image to this size
+    downscale: 1 # downscale factor wrt to the load_size. for example, you may want to render a low-resolution video for preview
+    num_cams: 3 # number of cameras to use, choose from [1, 3, 5] for waymo, [1, 3, 6] for nuscenes. 1: frontal, 3: frontal + frontal_left + frontal_right
+    test_image_stride: 0 # use every Nth timestep for the test set. if 0, use all images for training and none for testing
+    load_rgb: True  # whether to load rgb images
+    load_sky_mask: True  # whether to load sky masks. We provide pre-extracted sky masks for waymo and nuscenes on google drive
+    load_dynamic_mask: True  # whether to load binary masks for dynamic objects. only available for waymo for now
+    load_features: False  # whether to load 2D features from some pretrained model
+    skip_feature_extraction: False # whether to skip loading pre-trained for feature extraction
+    target_feature_dim: 64 # if not null, we will use pca to reduce the dimension of 2D features to this value
+    feature_model_type: dinov2_vitb14 # the pretrained model to use. we use dino_vitb8 for dinov1 and dinov2_vitb14 for dinov2, but more models are available
+    feature_extraction_stride: 7 # 8 for v1, and 7 for v2
+    feature_extraction_size: [644, 966] # for waymo, [640, 960] for v1, [644, 966] for v2
+    delete_features_after_run: False # whether to delete features after running to save disk space. 2D features of a single sequence can be 30GB+.
+    sampler:  # importance sampling for the pixels. we use pixel error as the importance weight
+      buffer_downscale: 16 # downscale factor for the buffer wrt load_size
+      buffer_ratio: 0.25 # how many samples to use from the buffer, 0.25 = 25% of the sampled rays will be from the buffer
+  lidar_source: # everything related to "lidar" --- from lidar points
+    load_lidar: True # whether to load lidar
+    only_use_top_lidar: False # whether to only use the top lidar, only available for waymo for now
+    truncated_max_range: 80 # max range for truncated lidar in a ego-centric coordinate system
+    truncated_min_range: -2 # min range for truncated lidar in a ego-centric coordinate system. this value should be -80 for nuScenes.
+    # ---- compute aabb from lidar ---- #
+    # if load_lidar is True, we compute aabb from lidar, otherwise we compute aabb from cameras
+    # 1) downsample lidar by random sampling to 1/lidar_downsample_factor number of points
+    # 2) compute aabb from the downsampled lidar points by using the percentile of lidar_percentiles 
+    lidar_downsample_factor: 4 # downsample lidar by this factor to compute percentile
+    lidar_percentile: 0.02  # percentile to compute aabb from lidar
+  occ_source: # occupancy annotations from the occ3D dataset
+    voxel_size: 0.1 # choose from [0.4, 0.1]
+nerf: # emernerf hyperparameters
+  # direction: x-front, y-left, z-up. [x_min, y_min, z_min, x_max, y_max, z_max]
+  aabb: [-20.0, -40.0, 0, 80.0, 40.0, 20.0] # a pre-defined aabb for the scene, but it's not used for now, as all aabb are computed from the data
+  unbounded: True # use unbounded contraction as in mipnerf360 / merf
+  propnet: # proposal networks hyperparameters
+    num_samples_per_prop: [128, 64] # how many samples to use for each propnet
+    near_plane: 0.1 # near plane for the propnet
+    far_plane: 1000.0 # far plane for the propnet
+    sampling_type: uniform_lindisp # choose from "uniform_lindisp", "uniform", "lindisp", "sqrt", "log"
+    enable_anti_aliasing_level_loss: True  # whether to use anti-aliasing level loss from zipnerf. it helps address z-alaising artifacts
+    anti_aliasing_pulse_width: [0.03, 0.003] # pulse width for the anti-aliasing level loss
+    xyz_encoder: # "backbone" for the propnet
+      type: HashEncoder # only HashEncoder is supported for now
+      n_input_dims: 3 # 3 for xyz
+      n_levels_per_prop: [8, 8]
+      base_resolutions_per_prop: [16, 16]
+      max_resolution_per_prop: [512, 2048]
+      lgo2_hashmap_size_per_prop: [20, 20]
+      n_features_per_level: 1
+  sampling: # sampling hyperparameters
+    num_samples: 64 # final number of samples used for querying emernerf
+  model: # emernerf model hyperparameters
+    xyz_encoder: # "backbone" for the static branch
+      type: HashEncoder # only HashEncoder is supported for now
+      n_input_dims: 3 # 3 for xyz
+      n_levels: 10
+      n_features_per_level: 4
+      base_resolution: 16
+      max_resolution: 8192
+      log2_hashmap_size: 20 # usually the larger the better
+    dynamic_xyz_encoder:  # "backbone" for the dynamic branch. only be created if head.enable_dynamic_branch is True
+      type: HashEncoder # only HashEncoder is supported for now
+      n_input_dims: 4 # 3 for xyz, 1 for time
+      n_levels: 10
+      n_features_per_level: 4
+      base_resolution: 32  # didn't do any ablation study on this
+      max_resolution: 8192
+      log2_hashmap_size: 18 # slightly smaller just to save gpu memory. didn't do any ablation study on this
+      # on a side note, the flow encoder will have an identical structure as the dynamic xyz encoder
+    neck:
+      base_mlp_layer_width: 64
+      geometry_feature_dim: 64 # usually the larger the better
+      semantic_feature_dim: 64 # usually the larger the better
+    head:
+      head_mlp_layer_width: 64 # usually the larger the better
+      # ======= appearance embedding ======= #
+      enable_cam_embedding: False # whether to use camera embedding
+      enable_img_embedding: True # whether to use image embedding
+      appearance_embedding_dim: 16 # appearance embedding dimension for each camera or image
+      # ========== sky =========== #
+      enable_sky_head: True # will also initialize a feature sky head when a feature head is enabled
+      # ========== features ========== #
+      enable_feature_head: False # whether to use feature head
+      feature_embedding_dim: 64 # 384 for dino_small, 768 for dino_base, or target_feature_dim if it's not null
+      feature_mlp_layer_width: 64 # number of hidden units in dino head, usually the larger the better
+      # ====== learnable PE map ===== #
+      enable_learnable_pe: True # very important decomposition technique
+      # ======= dynamic ======== #
+      enable_dynamic_branch: False # whether to use dynamic branch
+      enable_shadow_head: False # whether to use shadow head to predict shadow ratio
+      #TODO: we didn't study this yet
+      # interpolation
+      interpolate_xyz_encoding: True
+      enable_temporal_interpolation: False
+      # ======= flow =========== #
+      enable_flow_branch: False  # whether to use flow branch
+render: # rendering hyperparameters
+  render_chunk_size: 16384 # how many rays to render at a time
+  render_novel_trajectory: False # whether to render a predefined novel trajectory after training
+  fps: 24 # fps for the rendered video
+  render_low_res: True # whether to render low-res video for preview after training
+  render_full: True # whether to render full-set video (train&test set) after training 
+  render_test: True # whether to render test set after training
+  low_res_downscale: 4 # downscale factor for the low-res video
+  save_html: False # whether to save html visualization of voxels
+  vis_voxel_size: 0.3 # voxel size for visualization
+supervision: # supervision hyperparameters
+  rgb: # rgb supervision
+    loss_type: l2 # choose from ["l1", "smooth_l1", "l2"]
+    loss_coef: 1.0 # didn't do any ablation study on this
+  depth: # depth supervision
+    loss_type: l2 # choose from ["l1", "smooth_l1", "l2"]
+    enable: True # whether to use depth supervision
+    loss_coef: 1.0 # didn't do any ablation study on this
+    depth_error_percentile: null # placeholder for future use. lidar becomes less accurate when it's far away from the ego vehicle. we can use this to weight the depth supervision.
+    line_of_sight:
+      enable: True
+      loss_type: "my" # self-implemented line-of-sight loss
+      loss_coef: 0.1 # how about 0.01?
+      start_iter: 2000 # when to start using line-of-sight loss
+      # if your flow field is not accurate or collapsed, 
+      # you may want to use a stronger line-of-sight loss
+      # e.g., reduce start_epsilon to 3.0 and end_epsilon to 1.0
+      # but it will lower PSNR
+      start_epsilon: 6.0 # initial epsilon for line-of-sight loss
+      end_epsilon: 2.5 # final epsilon for line-of-sight loss
+      decay_steps: 5000 # how many steps to decay loss_coef
+      decay_rate: 0.5 # decay rate for loss_coef
+  sky: # sky supervision
+    loss_type: opacity_based # choose from ["opacity_based", "weights_based"]
+    loss_coef: 0.001
+  feature: # feature supervision
+    loss_type: l2 # choose from ["l1", "smooth_l1", "l2"]
+    loss_coef: 0.5 # didn't do any ablation study on this
+  dynamic: # dynamic regularization
+    loss_type: sparsity 
+    loss_coef: 0.01
+    entropy_loss_skewness: 1.1 # TODO: we didn't study this yet
+  shadow: # shadow regularization
+    loss_type: sparsity
+    loss_coef: 0.01
+optim: # optimization hyperparameters
+  num_iters: 25000 # number of iterations to train
+  weight_decay: 1e-5
+  lr: 0.01
+  seed: 0 # random seed
+  check_nan: False # whether to check nan, will slow down training
+  cache_rgb_freq: 2000 # how often to cache the error map
+logging:
+  vis_freq: 2000 # how often to visualize training stats
+  print_freq: 200 # how often to print training stats
+  saveckpt_freq: 10000 # how often to save checkpoints
+  save_seperate_video: True # whether to save seperate video for each rendered key
+resume_from: null # path to a checkpoint to resume from
+eval:
+  eval_lidar_flow: False # whether to evaluate lidar flow, only available for waymo for now
+  remove_ground_when_eval_lidar_flow: True # whether to remove ground points when evaluating lidar flow
+  eval_occ: False # whether to evaluate voxel classification, only available for waymo for now
+  occ_annotation_stride: 10 # use every Nth timestep for the annotations
