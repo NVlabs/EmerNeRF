@@ -159,12 +159,10 @@ For more examples, refer to the `sample_scripts/` folder.
 Consider citing our paper if you find this code or our paper is useful for your research:
 
 ```bibtex
-@misc{yang2023emernerf,
-      title={EmerNeRF: Emergent Spatial-Temporal Scene Decomposition via Self-Supervision},
-      author={Jiawei Yang and Boris Ivanovic and Or Litany and Xinshuo Weng and Seung Wook Kim and Boyi Li and Tong Che and Danfei Xu and Sanja Fidler and Marco Pavone and Yue Wang},
-      year={2023},
-      eprint={2311.02077},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
+@article{yang2023emernerf,
+    title={EmerNeRF: Emergent Spatial-Temporal Scene Decomposition via Self-Supervision},
+    author={Jiawei Yang and Boris Ivanovic and Or Litany and Xinshuo Weng and Seung Wook Kim and Boyi Li and Tong Che and Danfei Xu and Sanja Fidler and Marco Pavone and Yue Wang},
+    journal={arXiv preprint arXiv:2311.02077},
+    year={2023}
 }
 ```
