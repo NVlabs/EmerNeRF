@@ -1,7 +1,7 @@
 # EmerNeRF
 
 PyTorch implementation of:
-> [**EmerNeRF: Emergent Spatial-Temporal Scene Decomposition via Self-Supervision**](https://arxiv.org/abs/tbd),  
+> [**EmerNeRF: Emergent Spatial-Temporal Scene Decomposition via Self-Supervision**](https://arxiv.org/abs/2311.02077),  
 > [Jiawei Yang](https://jiawei-yang.github.io), [Boris Ivanovic](https://www.borisivanovic.com/), [Or Litany](https://orlitany.github.io/), [Xinshuo Weng](https://www.xinshuoweng.com/), [Seung Wook Kim](https://seung-kim.github.io/seungkim/), [Boyi Li](https://sites.google.com/site/boyilics/home), [Tong Che](), [Danfei Xu](https://faculty.cc.gatech.edu/~danfei/), [Sanja Fidler](https://www.cs.utoronto.ca/~fidler/), [Marco Pavone](https://web.stanford.edu/~pavone/), [Yue Wang](https://yuewang.xyz/)
 
 #### [Project page](https://emernerf.github.io) | [Paper](https://arxiv.org/abs/2311.02077)
