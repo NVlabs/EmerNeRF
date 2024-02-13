@@ -224,12 +224,11 @@ class NuScenesPixelSource(ScenePixelSource):
         global_to_initial_ego = np.linalg.inv(initial_ego_to_global)
 
         for t in range(self.start_timestep, self.end_timestep):
-            ego_to_global_current = self.meta_dict["CAM_FRONT"]["ego_pose"][t]
-            # compute ego_to_world transformation
-            ego_to_world = global_to_initial_ego @ ego_to_global_current
-            ego_to_worlds.append(ego_to_world)
             for cam_name in self.camera_list:
                 cam_to_ego = self.meta_dict[cam_name]["extrinsics"][t]
+                ego_to_global_current = self.meta_dict[cam_name]["ego_pose"][t]
+                # compute ego_to_world transformation
+                ego_to_world = global_to_initial_ego @ ego_to_global_current
                 # Because we use opencv coordinate system to generate camera rays,
                 # we need to store the transformation from opencv coordinate system to dataset
                 # coordinate system. However, the nuScenes dataset uses the same coordinate
@@ -263,7 +262,7 @@ class NuScenesPixelSource(ScenePixelSource):
         )
 
         self.cam_to_worlds = torch.from_numpy(np.stack(cam_to_worlds, axis=0)).float()
-        self.ego_to_worlds = torch.from_numpy(np.stack(ego_to_worlds, axis=0)).float()
+        # self.ego_to_worlds = torch.from_numpy(np.stack(ego_to_worlds, axis=0)).float()
         self.global_to_initial_ego = torch.from_numpy(global_to_initial_ego).float()
         self.cam_ids = torch.from_numpy(np.stack(cam_ids, axis=0)).long()
 
